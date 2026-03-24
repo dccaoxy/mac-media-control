@@ -154,19 +154,52 @@ curl -s -X POST "https://api.minimaxi.com/v1/music_generation" \
 ### Text-to-Speech (语音合成)
 ```bash
 # Note: Requires TTS API permission
+# 推荐模型: speech-2.8-hd (speech-02-hd 在 Max-极速版不支持)
 curl -s -X POST "https://api.minimaxi.com/v1/t2a_v2" \
   -H "Authorization: Bearer $MINIMAX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "speech-02-hd",
+    "model": "speech-2.8-hd",
     "text": "Your text here",
     "voice_setting": {
-      "voice_id": "male-qn-qingse",
-      "speed": 1.0,
-      "pitch": 0,
-      "emotion": "neutral"
+      "voice_id": "female-tianmei",
+      "speed": 1.0
+    },
+    "audio_setting": {
+      "format": "mp3"
     }
-  }'
+  }' | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+audio_hex = data['data']['audio']
+audio_bytes = bytes.fromhex(audio_hex)
+with open('/tmp/tts_output.mp3', 'wb') as f:
+    f.write(audio_bytes)
+print('Saved:', len(audio_bytes), 'bytes')
+"
+
+# 常用音色:
+#   female-tianmei  - 甜美女性
+#   female-yujie    - 御姐
+#   male-qn-qingse  - 青年男性
+#   presenter_male   - 主持人
+#   audiobook_male_1 - 男性有声书
+```
+
+### 在 Mac 扬声器播放音频 (重要!)
+```bash
+# 问题: opus 格式音量偏低，afplay 可能只播1秒就"消失"
+# 解决: 转换为 MP3 并放大音量
+
+# 1. 转换为 MP3 并放大音量 3 倍
+ffmpeg -i input.opus -af "volume=3" output_vol.mp3 -y
+
+# 2. 设置系统音量后播放
+osascript -e "set volume output volume 50"  # 50% 音量
+afplay output_vol.mp3
+
+# 或者一行命令:
+afplay <(ffmpeg -i input.opus -af "volume=3" - - 2>/dev/null)
 ```
 
 ## Quick Reference
@@ -175,10 +208,12 @@ curl -s -X POST "https://api.minimaxi.com/v1/t2a_v2" \
 |------|---------|
 | Take photo | `imagesnap -d "MacBook Pro相机" photo.jpg` |
 | Record 10s audio | `ffmpeg -f avfoundation -i ":0" -t 10 audio.m4a` |
-| Play audio | `afplay audio.mp3` |
+| Play audio (正常音量) | `afplay audio.mp3` |
+| Play audio (放大音量) | `afplay <(ffmpeg -i audio.opus -af "volume=3" - 2>/dev/null)` |
 | Set volume 50% | `osascript -e "set volume output volume 50"` |
 | Screenshot | `/usr/sbin/screencapture -x screen.jpg` |
 | Send Feishu voice | `openclaw message send --channel feishu --target <id> --media audio.m4a --account default` |
+| TTS 生成语音 | `curl -X POST "https://api.minimaxi.com/v1/t2a_v2" -H "Authorization: Bearer $API_KEY" -d '{"model":"speech-2.8-hd","text":"文字","voice_setting":{"voice_id":"female-tianmei"}}'` |
 
 ## Permissions
 
